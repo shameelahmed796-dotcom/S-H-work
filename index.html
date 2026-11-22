@@ -1,135 +1,58 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#1E3A8A"><title>SH Works | Pakistani Freelance Marketplace</title>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>SH Works | Freelance Services Marketplace</title>
+<meta name="description" content="Hire trusted Pakistani freelancers for web, design, video and writing. Escrow-protected payments.">
 <script src="https://cdn.tailwindcss.com/3.4.17"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script>tailwind.config={theme:{extend:{colors:{brand:{DEFAULT:'#1E3A8A',dark:'#172b69',soft:'#E8ECF7'}}}}}</script>
-<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px)}body{background:#F8F5F0;color:#1c1917;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}.th{aspect-ratio:16/10;background-size:cover;background-position:center}input,select,textarea{border:1px solid #d6d3d1;border-radius:.6rem;padding:.5rem .7rem;width:100%;background:#fff;font-size:14px}</style></head>
-<body>
-<header class="sticky top-0 z-30 bg-white border-b border-stone-200"><div class="max-w-6xl mx-auto px-4 h-14 flex items-center gap-3"><a href="#/" class="font-extrabold text-lg text-brand">SH Works</a><nav id="nav" class="ml-auto flex items-center gap-1 text-sm"></nav></div></header>
-<main id="app" class="max-w-6xl mx-auto px-4 py-6 pb-24"></main><div id="modal"></div><div id="toast" class="fixed left-1/2 -translate-x-1/2 bottom-6 z-50"></div>
 <script>
-// ===== STEP 1: apni Supabase URL aur anon/publishable key yahan paste karein (service_role KABHI nahi) =====
-const SUPA_URL='PASTE_YOUR_SUPABASE_URL',SUPA_KEY='PASTE_YOUR_ANON_KEY';
-// ===== STEP 2: apne payment accounts yahan likhein (clients ko checkout par yehi dikhte hain) =====
-const PAY={'EasyPaisa':'03XX-XXXXXXX · Account title: YOUR NAME','JazzCash':'03XX-XXXXXXX · Account title: YOUR NAME','SadaPay':'03XX-XXXXXXX · Account title: YOUR NAME','NayaPay':'03XX-XXXXXXX · Account title: YOUR NAME','Bank Transfer':'Bank: YOUR BANK · Title: YOUR NAME · IBAN: PKXX XXXX XXXX XXXX XXXX XXXX'};
-const HASH0=location.hash;
-const sb=supabase.createClient(SUPA_URL,SUPA_KEY);
-function payInfo(){const m=$('pm').value;$('pinfo').innerHTML=`<div class="text-xs text-stone-500">Send <b class="text-stone-900">${P(S.co)}</b> via ${esc(m)} to:</div><div class="font-semibold text-sm mt-1 break-words">${esc(PAY[m])}</div>`}
-const $=i=>document.getElementById(i),esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const P=n=>(n<0?'-':'')+'PKR '+Math.abs(n||0).toLocaleString('en-US'),fee=p=>Math.round(p*.05),v=i=>$(i).value.trim();
-const CATS=['Video Editing','Graphic Design','Coding','AI Tools','Content Writing'],TIER=['Basic','Standard','Premium'];
-const ST={payment_review:['Payment under review','bg-amber-100 text-amber-800'],in_progress:['In progress','bg-blue-100 text-blue-800'],delivered:['Delivered','bg-emerald-100 text-emerald-800'],disputed:['Dispute','bg-red-100 text-red-800'],completed:['Completed','bg-stone-200 text-stone-700'],refunded:['Refunded','bg-stone-200 text-stone-700'],rejected:['Rejected','bg-stone-200 text-stone-700'],pending:['Awaiting approval','bg-amber-100 text-amber-800'],active:['Live','bg-emerald-100 text-emerald-800'],paused:['Paused','bg-stone-200 text-stone-700']};
-const S={co:0,users:[],u:null,prof:null,gigs:[],names:{},orders:[],wallet:0,wd:[],cat:'All',q:'',sort:'new',pkg:0};let poll=null;
-const card=(h,c='')=>`<div class="bg-white rounded-2xl border border-stone-200 p-4 ${c}">${h}</div>`,btn=(l,f,c='')=>`<button onclick="${f}" class="px-4 py-2 rounded-xl text-sm font-semibold bg-brand text-white hover:bg-brand-dark active:scale-95 ${c}">${l}</button>`,badge=s=>`<span class="text-xs px-2 py-1 rounded-full whitespace-nowrap ${ST[s][1]}">${ST[s][0]}</span>`;
-const toast=m=>{$('toast').innerHTML=`<div class="bg-brand text-white text-sm rounded-xl px-4 py-2 shadow-lg max-w-xs">${esc(m)}</div>`;setTimeout(()=>$('toast').innerHTML='',4000)};
-const modal=h=>$('modal').innerHTML=h?`<div class="fixed inset-0 bg-black/40 z-40 flex items-end sm:items-center justify-center" onclick="if(event.target===this)modal()"><div class="bg-[#F8F5F0] w-full max-w-md rounded-t-3xl sm:rounded-3xl p-5 max-h-[90vh] overflow-y-auto space-y-3">${h}</div></div>`:'';
-const role=()=>S.prof?.role,uid=()=>S.u?.id,gig=id=>S.gigs.find(g=>g.id==id),sn=id=>S.names[id]||'Seller';
-const thumb=g=>`<div class="th rounded-xl" style="${g.images?.[0]?`background-image:url('${esc(g.images[0])}')`:'background:linear-gradient(135deg,#1E3A8A,#7b93d6)'}"></div>`;
-async function rpc(n,a,msg){const{error}=await sb.rpc(n,a);if(error){toast(error.message);return false}await load();route();if(msg)toast(msg);return true}
-async function up(b,f){const p=`${uid()}/${Date.now()}_${f.name.replace(/[^\w.]/g,'_')}`,r=await sb.storage.from(b).upload(p,f);if(r.error){toast(r.error.message);return null}return p}
-async function openFile(b,p){const{data,error}=await sb.storage.from(b).createSignedUrl(p,300);if(error)return toast(error.message);window.open(data.signedUrl,'_blank')}
-async function boot(){const{data:{session}}=await sb.auth.getSession();S.u=session?.user||null;await load();route();
- if(/type=(signup|email)/.test(HASH0)&&S.u)toast('Email verified. Welcome to SH Works!');
- if(/error_code=otp_expired|error=access_denied/.test(HASH0))toast('This link is invalid or expired. Please request a new one.')}
-sb.auth.onAuthStateChange(e=>{if(e=='PASSWORD_RECOVERY')setTimeout(resetModal,300)});
-async function load(){
- S.gigs=(await sb.from('gigs').select('*').order('created_at',{ascending:false})).data||[];
- S.names=Object.fromEntries(((await sb.from('profiles_public').select('*')).data||[]).map(p=>[p.id,p.name]));
- if(!S.u){S.prof=null;S.orders=[];S.wallet=0;S.wd=[];return}
- S.prof=(await sb.from('users').select('*').eq('id',uid()).single()).data;
- S.orders=(await sb.from('orders').select('*').order('created_at',{ascending:false})).data||[];
- S.wallet=(await sb.from('wallets').select('balance_pkr').eq('user_id',uid()).single()).data?.balance_pkr||0;
- S.wd=role()=='admin'?((await sb.from('transactions').select('*').eq('type','withdrawal').eq('status','pending')).data||[]):[];S.users=role()=='admin'?((await sb.from('users').select('*').order('created_at',{ascending:false})).data||[]):[];
-}
-function route(){clearInterval(poll);window.scrollTo(0,0);
- const[p,id]=(location.hash.slice(1)||'/').split('/').filter(Boolean);
- const nav=[['#/','Explore'],S.u&&['#/orders','My orders'],role()=='freelancer'&&['#/sell','Sell'],role()=='admin'&&['#/admin','Admin']].filter(Boolean).map(x=>`<a href="${x[0]}" class="px-3 py-1.5 rounded-lg hover:bg-brand-soft">${x[1]}</a>`).join('')+(S.u?`<button onclick="logout()" class="px-3 py-1.5 text-stone-500">Sign out</button>`:`<button onclick="authModal('in')" class="px-3 py-1.5 font-medium">Sign in</button>${btn('Join',"authModal('up')")}`);
- $('nav').innerHTML=nav;
- const gate=()=>S.u?null:card('Please sign in to continue.')+btn('Sign in',"authModal('in')",'mt-3');
- $('app').innerHTML=SUPA_URL.startsWith('PASTE')?card('<b>Setup required.</b> Add your Supabase URL and key at the top of this file.','!bg-amber-50'):
-  p=='gig'?gigPage(id):p=='orders'?(gate()||orders()):p=='order'?(gate()||orderPage(id)):p=='sell'?(gate()||sell()):p=='admin'?(role()=='admin'?admin():card('Admin only.')):home();
- if(p=='order'&&S.u)loadMsgs(id)
-}
-window.addEventListener('hashchange',route);
-let AM='in';const RD=location.href.split('#')[0];
-function authModal(m){AM=m||'in';const up=AM=='up',fg=AM=='forgot';
- modal(`<div class="flex justify-between items-start"><h3 class="font-bold text-lg">${fg?'Reset your password':up?'Create your account':'Welcome back'}</h3><button onclick="modal()" class="text-stone-400 text-xl leading-none">×</button></div><p class="text-xs text-stone-600">${fg?'Enter your email and we will send you a reset link.':up?'Free to join. No CNIC or B-Form required.':'Sign in to continue.'}</p>
- ${fg?'':`<div class="grid grid-cols-2 bg-stone-200/60 rounded-xl p-1 text-sm font-semibold">${[['in','Sign in'],['up','Join']].map(([k,l])=>`<button onclick="authModal('${k}')" class="py-2 rounded-lg ${AM==k?'bg-white shadow text-brand':'text-stone-500'}">${l}</button>`).join('')}</div>`}
- ${up?`<input id="nm" placeholder="Full name"><select id="rl"><option value="client">I want to hire (Client)</option><option value="freelancer">I want to sell (Freelancer)</option></select>`:''}
- <input id="em" type="email" placeholder="Email address">${fg?'':`<input id="pw" type="password" placeholder="Password (6+ characters)" onkeydown="if(event.key=='Enter')doAuth()">`}
- ${btn(fg?'Send reset link':up?'Create account':'Sign in','doAuth()','w-full')}
- ${AM=='in'?`<button onclick="authModal('forgot')" class="text-xs text-brand underline w-full text-center">Forgot password?</button>`:''}${fg?`<button onclick="authModal('in')" class="text-xs text-brand underline w-full text-center">Back to sign in</button>`:''}`)}
-function verifyScreen(t,m,em){modal(`<div class="text-center space-y-2"><div class="text-4xl">✉️</div><h3 class="font-bold text-lg">${t}</h3><p class="text-sm text-stone-600">${esc(m)}</p>${em?`<p class="text-xs text-stone-500">Cannot find it? Check your spam folder.</p>${btn('Resend email',`resend('${esc(em)}')`,'w-full')}`:''}<button onclick="authModal('in')" class="text-xs text-brand underline">Back to sign in</button></div>`)}
-async function resend(em){const{error}=await sb.auth.resend({type:'signup',email:em,options:{emailRedirectTo:RD}});toast(error?error.message:'Verification email sent again.')}
-async function doAuth(){const em=v('em');
- if(AM=='forgot'){const{error}=await sb.auth.resetPasswordForEmail(em,{redirectTo:RD});if(error)return toast(error.message);return verifyScreen('Check your email','We sent a password reset link to '+em+'.')}
- const pw=v('pw');if(!/^\S+@\S+\.\S+$/.test(em)||pw.length<6)return toast('Enter a valid email and a password of 6+ characters.');
- if(AM=='up'){if(!v('nm'))return toast('Please enter your name.');
-  const{data,error}=await sb.auth.signUp({email:em,password:pw,options:{data:{role:v('rl'),name:v('nm')},emailRedirectTo:RD}});if(error)return toast(error.message);
-  if(!data.session)return verifyScreen('Verify your email','We sent a confirmation link to '+em+'. Open it to activate your account, then sign in.',em)}
- else{const{error}=await sb.auth.signInWithPassword({email:em,password:pw});
-  if(error){if(/not confirmed/i.test(error.message))return verifyScreen('Email not verified','Please open the confirmation link we sent to '+em+' and then sign in.',em);return toast(error.message)}}
- modal();await boot();if(role()=='freelancer')location.hash='#/sell';route()}
-function resetModal(){modal(`<h3 class="font-bold text-lg">Set a new password</h3><input id="np" type="password" placeholder="New password (6+ characters)">${btn('Update password','setPw()','w-full')}`)}
-async function setPw(){const p=v('np');if(p.length<6)return toast('Password must be 6+ characters.');const{error}=await sb.auth.updateUser({password:p});if(error)return toast(error.message);modal();toast('Password updated.');await boot()}
-async function logout(){await sb.auth.signOut();S.u=null;await load();location.hash='#/';route()}
-// ---------- Explore ----------
-function home(){const l=S.gigs.filter(g=>g.status=='active'&&(S.cat=='All'||g.category==S.cat)&&(!S.q||(g.title+g.category+(g.tags||'')).toLowerCase().includes(S.q.toLowerCase())));
- l.sort(S.sort=='low'?(a,b)=>a.price_pkr-b.price_pkr:S.sort=='high'?(a,b)=>b.price_pkr-a.price_pkr:(a,b)=>b.created_at.localeCompare(a.created_at));
- return `<section class="bg-brand text-white rounded-3xl p-6 md:p-10 mb-6"><h1 class="text-2xl md:text-4xl font-extrabold">Hire talented Pakistani freelancers</h1><p class="mt-2 text-white/80 text-sm">Video editing, design, coding, AI tools and writing from talented young creators. Your payment stays in escrow until you approve the work.</p><input id="sq" value="${esc(S.q)}" onkeydown="if(event.key=='Enter'){S.q=this.value;route()}" placeholder="What service are you looking for?" class="mt-4 !rounded-full max-w-md text-stone-900"></section>
- <div class="flex gap-2 overflow-x-auto pb-2">${['All',...CATS].map(c=>`<button onclick="S.cat='${c}';route()" class="whitespace-nowrap text-xs px-3 py-2 rounded-full border ${S.cat==c?'bg-brand text-white border-brand':'bg-white border-stone-300'}">${c}</button>`).join('')}</div>
- <div class="flex items-center justify-between my-3"><span class="text-sm text-stone-500">${l.length} gigs</span><select class="!w-auto" onchange="S.sort=this.value;route()"><option value="new" ${S.sort=='new'?'selected':''}>Newest</option><option value="low" ${S.sort=='low'?'selected':''}>Price: low to high</option><option value="high" ${S.sort=='high'?'selected':''}>Price: high to low</option></select></div>
- ${l.length?`<div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">${l.map(g=>`<a href="#/gig/${g.id}" class="block bg-white rounded-2xl border border-stone-200 overflow-hidden hover:shadow-lg transition">${thumb(g)}<div class="p-3"><div class="text-xs text-stone-500">${esc(sn(g.owner_id))} · ${g.category}</div><div class="text-sm font-medium mt-1 line-clamp-2 min-h-[2.5rem]">${esc(g.title)}</div><div class="text-sm mt-2 text-right">From <b>${P(g.price_pkr)}</b></div></div></a>`).join('')}</div>`:card('No services yet. Please check back soon.')}`}
-// ---------- Gig page ----------
-function gigPage(id){const g=gig(id);if(!g)return card('Gig not found.');const pk=g.packages[S.pkg]||g.packages[0];if(!pk)return card('No packages.');const own=g.owner_id==uid();
- return `<a href="#/" class="text-sm text-brand">← Back</a><div class="grid lg:grid-cols-3 gap-6 mt-3"><div class="lg:col-span-2 space-y-4"><h1 class="text-2xl font-bold">${esc(g.title)}</h1><div class="text-sm text-stone-600">by <b>${esc(sn(g.owner_id))}</b> · ${g.category}</div>
- ${g.video_url?`<video src="${esc(g.video_url)}" controls class="w-full rounded-2xl bg-black"></video>`:''}${(g.images||[]).map(i=>`<img src="${esc(i)}" class="w-full rounded-2xl" alt="">`).join('')||(g.video_url?'':thumb(g))}
- ${card(`<h2 class="font-bold mb-2">About this gig</h2><p class="text-sm text-stone-700 whitespace-pre-line">${esc(g.description)}</p>${g.tags?`<p class="text-xs text-stone-500 mt-2">Tags: ${esc(g.tags)}</p>`:''}`)}</div>
- <aside class="lg:sticky lg:top-20 h-fit bg-white border border-stone-200 rounded-2xl overflow-hidden"><div class="grid" style="grid-template-columns:repeat(${g.packages.length},1fr)">${g.packages.map((_,i)=>`<button onclick="S.pkg=${i};route()" class="py-3 text-sm font-semibold ${S.pkg==i?'bg-brand-soft text-brand border-b-2 border-brand':'text-stone-500'}">${TIER[i]}</button>`).join('')}</div>
- <div class="p-4 space-y-3"><div class="flex justify-between items-end"><b>${TIER[S.pkg]||'Basic'}</b><span class="text-2xl font-extrabold">${P(pk.price)}</span></div><p class="text-sm text-stone-600 whitespace-pre-line">${esc(pk.desc)}</p><div class="text-sm">⏱ ${pk.days} day delivery · 2 free revisions</div><div class="text-xs text-stone-500 border-t pt-2">+ 5% service fee ${P(fee(pk.price))} = <b>${P(pk.price+fee(pk.price))}</b> total</div>${own?'<p class="text-xs text-stone-500">This is your own service.</p>':btn('Continue','checkout(\''+g.id+'\')','w-full')}</div></aside></div>`}
-function checkout(id){if(!S.u)return authModal('in');S.co=gig(id).packages[S.pkg].price+fee(gig(id).packages[S.pkg].price);const g=gig(id),pk=g.packages[S.pkg],f=fee(pk.price);
- modal(`<h3 class="font-bold text-lg">Checkout</h3><div class="text-sm">${esc(g.title)} · ${TIER[S.pkg]}</div>${card(`<div class="flex justify-between text-sm"><span>Service</span><span>${P(pk.price)}</span></div><div class="flex justify-between text-sm"><span>Platform fee (5%)</span><span>${P(f)}</span></div><div class="flex justify-between font-bold border-t mt-1 pt-1"><span>You pay</span><span>${P(pk.price+f)}</span></div><div class="text-xs text-stone-500 mt-1">Held in escrow until you approve the delivery.</div>`)}<textarea id="rq" rows="3" placeholder="Describe what you need (details, links, deadline)"></textarea><label class="text-xs font-semibold text-stone-600">1. Choose how you will pay</label><select id="pm" onchange="payInfo()">${Object.keys(PAY).map(m=>`<option>${m}</option>`).join('')}</select><div id="pinfo" class="bg-white border border-brand/30 rounded-xl p-3"></div><label class="text-xs font-semibold text-stone-600">2. Submit your proof of payment</label><input id="tx" placeholder="Transaction ID"><input id="pf" type="file" accept="image/*"><p class="text-xs text-stone-500">We verify your payment, usually within a few hours. Your order starts right after. Funds stay in escrow until you approve the delivery.</p>${btn('Place order',"place('"+id+"')",'w-full')}`);payInfo()}
-async function place(id){const pf=$('pf').files[0];if(v('tx').length<6||!pf||!v('rq'))return toast('Requirements, transaction ID and a screenshot are required.');
- const p=await up('proofs',pf);if(!p)return;if(await rpc('place_order',{p_gig:id,p_pkg:S.pkg,p_method:v('pm'),p_txn:v('tx'),p_proof:p,p_req:v('rq')})){modal();location.hash='#/orders';toast('Order placed. We are verifying your payment.')}}
-// ---------- Orders + chat ----------
-const gt=id=>gig(id)?.title||'Gig';
-function orders(){const l=S.orders.filter(o=>o.client_id==uid());return `<h1 class="text-xl font-bold mb-3">My orders</h1>`+(l.length?l.map(o=>`<a href="#/order/${o.id}" class="block mb-3">${card(`<div class="flex justify-between gap-2"><b class="text-sm">${esc(gt(o.gig_id))}</b>${badge(o.status)}</div><div class="text-xs text-stone-500 mt-1">${TIER[o.pkg]} · ${P(o.price_pkr+o.client_fee_pkr)} · ${o.pay_method}</div>`)}</a>`).join(''):card('No orders yet.'))}
-function orderPage(id){const o=S.orders.find(x=>x.id==id);if(!o)return card('Order not found.');const c=o.client_id==uid(),f=o.freelancer_id==uid(),steps=['payment_review','in_progress','delivered','completed'],i=steps.indexOf(o.status);
- const act=c&&o.status=='delivered'?`<div class="flex gap-2">${btn('Approve & release payment',`rpc('release_escrow',{p_order:'${o.id}'},'Payment released to the seller.')`)}${btn('Report a problem',`rpc('open_dispute',{p_order:'${o.id}',p_reason:'Client not satisfied'})`,'!bg-red-600')}</div>`:
- f&&['in_progress','disputed'].includes(o.status)?(o.status=='disputed'&&o.revisions_used>=2?'<p class="text-xs text-red-600">Free revisions used. Our team will review this dispute.</p>':`<input id="df" type="file">${btn(o.status=='disputed'?'Upload fix':'Deliver work',`deliver('${o.id}')`,'mt-2 w-full')}`):'';
- return `<a href="#/${c?'orders':'sell'}" class="text-sm text-brand">← Back</a><div class="grid lg:grid-cols-5 gap-4 mt-3"><div class="lg:col-span-2 space-y-3">${card(`<div class="flex justify-between gap-2"><b>${esc(gt(o.gig_id))}</b>${badge(o.status)}</div><div class="text-xs text-stone-500 mt-1">${TIER[o.pkg]} · ${o.delivery_days||'-'} days · revisions ${o.revisions_used}/2</div><div class="flex gap-1 mt-3">${steps.map((s,k)=>`<div class="flex-1 h-1.5 rounded ${k<=i?'bg-brand':'bg-stone-200'}"></div>`).join('')}</div><div class="text-xs mt-3 bg-stone-50 rounded-lg p-2"><b>Requirements:</b> ${esc(o.requirements)}</div>${o.ai_report?`<div class="text-xs mt-2 bg-emerald-50 rounded-lg p-2">🤖 Quality check passed: ${esc(o.ai_report.summary)}</div>`:''}${o.deliverable_url&&(c||f)?`<div class="mt-2">${btn('View deliverable',`openFile('deliverables','${o.deliverable_url}')`,'!bg-stone-700')}</div>`:''}`)}${act?card(act):''}${card(`<div class="text-xs text-stone-500">Escrow: ${P(o.price_pkr)} held. Freelancer receives ${P(o.price_pkr-o.freelancer_fee_pkr)} after your approval.</div>`)}</div>
- <div class="lg:col-span-3 bg-white border border-stone-200 rounded-2xl flex flex-col" style="height:60vh"><div id="msgs" class="flex-1 overflow-y-auto p-4 space-y-2"></div><div class="border-t p-2 flex gap-2"><input id="ci" placeholder="Type a message..." onkeydown="if(event.key=='Enter')sendMsg('${o.id}')">${btn('Send',`sendMsg('${o.id}')`)}</div></div></div>`}
-async function loadMsgs(id){const draw=async()=>{const el=$('msgs');if(!el)return;const{data}=await sb.from('messages').select('*').eq('order_id',id).order('created_at');const at=el.scrollHeight-el.scrollTop-el.clientHeight<60;
-  el.innerHTML=(data||[]).map(m=>`<div class="flex ${m.sender_id==uid()?'justify-end':''}"><div class="max-w-[80%] px-3 py-2 rounded-2xl text-sm ${m.sender_id==uid()?'bg-brand text-white':'bg-stone-100'}">${esc(m.body)}</div></div>`).join('')||'<p class="text-xs text-stone-400 text-center">No messages yet. Say hello!</p>';if(at)el.scrollTop=el.scrollHeight};
- await draw();$('msgs').scrollTop=$('msgs').scrollHeight;poll=setInterval(draw,4000)}
-async function sendMsg(id){const b=v('ci');if(!b)return;const{error}=await sb.from('messages').insert({order_id:id,sender_id:uid(),body:b});if(error)return toast(error.message);$('ci').value='';loadMsgs(id)}
-async function deliver(id){const f=$('df').files[0];if(!f)return toast('Choose a file to deliver.');const ext=f.name.split('.').pop().toLowerCase();
- if(f.size<512||!['zip','rar','pdf','png','jpg','jpeg','mp4','mov','psd','ai','txt','docx','js','html','fig','mp3'].includes(ext))return toast('Quality check failed: the file is corrupt, unsupported or too small.');
- const p=await up('deliverables',f);if(p)await rpc('deliver_order',{p_order:id,p_file:p,p_report:{summary:`Integrity ✓ · Format .${ext} ✓ · Size ${Math.round(f.size/1024)} KB ✓`}},'Delivered. The client has been notified.')}
-// ---------- Seller studio ----------
-function sell(){const mine=S.gigs.filter(g=>g.owner_id==uid()),so=S.orders.filter(o=>o.freelancer_id==uid()),esc_=so.filter(o=>['in_progress','delivered','disputed'].includes(o.status)).reduce((a,o)=>a+o.price_pkr,0);
- const pf=i=>`<div class="grid grid-cols-3 gap-2"><input id="pp${i}" type="number" placeholder="${TIER[i]} PKR"><input id="pd${i}" type="number" placeholder="Days"><input id="pc${i}" placeholder="What's included"></div>`;
- return `<div class="grid grid-cols-2 gap-3 mb-3">${card(`<div class="text-xs text-stone-500">Wallet</div><div class="text-xl font-bold ${S.wallet<0?'text-red-600':''}">${P(S.wallet)}</div>`)}${card(`<div class="text-xs text-stone-500">In escrow</div><div class="text-xl font-bold">${P(esc_)}</div>`)}</div>
- ${S.wallet<0?card('Your balance is negative because of a refund. It will be cleared from future earnings, and withdrawals are paused until then.','!bg-red-50 text-sm mb-3'):''}
- <div class="grid lg:grid-cols-2 gap-4"><div class="space-y-3">${card(`<b>Create a new gig</b><div class="space-y-2 mt-2"><input id="gt" placeholder="I will... (gig title)"><select id="gc">${CATS.map(c=>`<option>${c}</option>`).join('')}</select><textarea id="gd" rows="4" placeholder="Describe your service"></textarea><input id="gg" placeholder="Tags (comma separated)"><div class="text-xs text-stone-500">Packages: Basic is required, the others are optional (PKR 300 to 50,000)</div>${[0,1,2].map(pf).join('')}<label class="text-xs text-stone-500">Photos (max 4, 3MB each)<input id="gi" type="file" accept="image/*" multiple></label><label class="text-xs text-stone-500">Video (max 50MB, optional)<input id="gv" type="file" accept="video/*"></label>${btn('Submit for review','createGig()','w-full')}</div>`)}
- ${card(`<b>Withdraw (min PKR 5,000)</b><div class="space-y-2 mt-2"><input id="wa" type="number" placeholder="Amount"><select id="wm"><option>EasyPaisa</option><option>JazzCash</option><option>Bank Account</option></select><input id="wc" placeholder="Account / phone number">${btn('Request payout','wdReq()','w-full')}</div>`)}</div>
- <div class="space-y-3"><b>My gigs</b>${mine.length?mine.map(g=>card(`<div class="flex gap-3">${thumb(g).replace('class="th','class="w-20 shrink-0 th')}<div class="flex-1 min-w-0"><div class="text-sm font-medium truncate">${esc(g.title)}</div><div class="text-xs text-stone-500">From ${P(g.price_pkr)}</div><div class="mt-1 flex gap-2 items-center">${badge(g.status)}${g.status=='active'?`<button class="text-xs underline" onclick="setGig('${g.id}','paused')">Pause</button>`:g.status=='paused'?`<button class="text-xs underline" onclick="setGig('${g.id}','active')">Resume</button>`:''}</div></div></div>`)).join(''):card('<span class="text-sm text-stone-500">You have not created a gig yet.</span>')}
- <b>Orders to deliver</b>${so.length?so.map(o=>`<a href="#/order/${o.id}" class="block">${card(`<div class="flex justify-between gap-2"><span class="text-sm">${esc(gt(o.gig_id))}</span>${badge(o.status)}</div>`)}</a>`).join(''):card('<span class="text-sm text-stone-500">No orders yet.</span>')}</div></div>`}
-async function createGig(){const pk=[0,1,2].map(i=>({price:+v('pp'+i),days:+v('pd'+i),desc:v('pc'+i)})).filter(x=>x.price>0);
- if(!v('gt')||!v('gd')||+v('pp0')<=0||pk.some(x=>x.price<300||x.price>50000||x.days<1))return toast('Add a title, a description and valid packages (PKR 300 to 50,000, 1+ days).');
- const imgs=[...$('gi').files].slice(0,4),vid=$('gv').files[0];if(imgs.some(f=>f.size>3e6)||(vid&&vid.size>50e6))return toast('Photos must be under 3MB and the video under 50MB.');
- toast('Uploading...');const pub=p=>sb.storage.from('gigmedia').getPublicUrl(p).data.publicUrl,urls=[];
- for(const f of imgs){const p=await up('gigmedia',f);if(!p)return;urls.push(pub(p))}let vu=null;if(vid){const p=await up('gigmedia',vid);if(!p)return;vu=pub(p)}
- const{error}=await sb.from('gigs').insert({owner_id:uid(),title:v('gt'),category:v('gc'),description:v('gd'),tags:v('gg'),price_pkr:pk[0].price,packages:pk,images:urls,video_url:vu});
- if(error)return toast(error.message);await load();route();toast('Gig submitted. It goes live after review.')}
-async function setGig(id,s){const{error}=await sb.from('gigs').update({status:s}).eq('id',id);if(error)return toast(error.message);await load();route()}
-async function wdReq(){await rpc('request_withdrawal',{p_amount:+v('wa'),p_method:v('wm'),p_account:v('wc')},'Payout requested.')}
-// ---------- Admin ----------
-function admin(){const dep=S.orders.filter(o=>o.status=='payment_review'),dis=S.orders.filter(o=>o.status=='disputed'),gp=S.gigs.filter(g=>g.status=='pending'),rev=S.orders.filter(o=>o.status=='completed').reduce((a,o)=>a+o.client_fee_pkr+o.freelancer_fee_pkr,0),e=t=>card(`<span class="text-sm text-stone-500">${t}</span>`);
- return card(`<div class="text-xs text-stone-500">Net revenue (completed orders)</div><div class="text-xl font-bold">${P(rev)}</div>`)+
- `<h2 class="font-semibold mt-4 mb-2">Gigs to approve</h2><div class="space-y-3">${gp.length?gp.map(g=>card(`<div class="text-sm font-medium">${esc(g.title)}</div><div class="text-xs text-stone-500">${esc(sn(g.owner_id))} · From ${P(g.price_pkr)}</div><div class="flex gap-2 mt-2"><a href="#/gig/${g.id}" class="px-4 py-2 rounded-xl text-sm border">Preview</a>${btn('Approve',`rpc('admin_review_gig',{p_gig:'${g.id}',p_ok:true},'Gig live')`)}${btn('Reject',`rpc('admin_review_gig',{p_gig:'${g.id}',p_ok:false})`,'!bg-red-600')}</div>`)).join(''):e('None')}</div>`+
- `<h2 class="font-semibold mt-4 mb-2">Deposits to verify</h2><div class="space-y-3">${dep.length?dep.map(o=>card(`<div class="text-sm">${esc(gt(o.gig_id))} · ${o.pay_method} · TXN ${esc(o.txn_id)}</div><div class="text-xs text-stone-500">Amount ${P(o.price_pkr+o.client_fee_pkr)}</div><div class="flex gap-2 mt-2 flex-wrap">${btn('View proof',`openFile('proofs','${o.proof_url}')`,'!bg-stone-700')}${btn('Approve',`rpc('admin_review_payment',{p_order:'${o.id}',p_ok:true})`)}${btn('Reject',`rpc('admin_review_payment',{p_order:'${o.id}',p_ok:false})`,'!bg-red-600')}</div>`)).join(''):e('None')}</div>`+
- `<h2 class="font-semibold mt-4 mb-2">Disputes</h2><div class="space-y-3">${dis.length?dis.map(o=>card(`<div class="text-sm">${esc(gt(o.gig_id))} · revisions ${o.revisions_used}/2</div><div class="flex gap-2 mt-2 flex-wrap"><a href="#/order/${o.id}" class="px-4 py-2 rounded-xl text-sm border">Open chat</a>${btn('Refund client',`rpc('refund_order',{p_order:'${o.id}'})`,'!bg-red-600')}${btn('Release to freelancer',`rpc('admin_release',{p_order:'${o.id}'})`)}</div>`)).join(''):e('None')}</div>`+
- `<h2 class="font-semibold mt-4 mb-2">Withdrawals</h2><div class="space-y-3">${S.wd.length?S.wd.map(x=>card(`<div class="text-sm">${P(x.amount_pkr)} → ${x.method} ${esc(x.account)}</div><div class="mt-2">${btn('Mark paid',`rpc('admin_pay_withdrawal',{p_tx:'${x.id}'})`)}</div>`)).join(''):e('None')}</div>`+usersTable()}
-try{const l=document.createElement('link');l.rel='manifest';l.href=URL.createObjectURL(new Blob([JSON.stringify({name:'SH Works',short_name:'SH Works',start_url:'.',display:'standalone',background_color:'#F8F5F0',theme_color:'#1E3A8A'})],{type:'application/json'}));document.head.appendChild(l)}catch(e){}
-boot();
-</script></body></html>
+tailwind.config = { theme: { extend: { colors: { brand: { DEFAULT:'#10B981', dark:'#059669', soft:'#ECFDF5' } } } } }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
+<script src="config.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased min-h-screen flex flex-col">
+
+<header class="sticky top-0 z-40 bg-white border-b border-slate-200">
+  <div class="max-w-6xl mx-auto px-4 h-16 flex items-center gap-4">
+    <a href="#/" class="font-extrabold text-lg">SH<span class="text-brand">Works</span></a>
+    <nav class="ml-auto flex items-center gap-2 text-sm" id="nav"></nav>
+  </div>
+</header>
+
+<main id="app" class="flex-1 max-w-6xl w-full mx-auto px-4 py-8"></main>
+
+<footer class="border-t border-slate-200 bg-white text-center text-xs text-slate-400 py-5">
+  &copy; <span id="yr"></span> SH Works (sh.works). All rights reserved.
+</footer>
+
+<!-- Auth modal -->
+<div id="authModal" class="hidden fixed inset-0 bg-slate-900/50 z-50 items-center justify-center p-4">
+  <div class="bg-white rounded-2xl w-full max-w-md p-6 relative">
+    <button id="authClose" class="absolute top-3 right-4 text-2xl text-slate-400 hover:text-slate-700" aria-label="Close">&times;</button>
+    <div class="flex gap-2 mb-5 text-sm font-semibold">
+      <button data-mode="signin" class="auth-tab flex-1 py-2 rounded-lg border">Sign in</button>
+      <button data-mode="signup" class="auth-tab flex-1 py-2 rounded-lg border">Create account</button>
+    </div>
+    <form id="authForm" class="space-y-3">
+      <div id="nameWrap" class="hidden space-y-3">
+        <input name="name" placeholder="Full name" class="w-full border rounded-lg px-3 py-2 text-sm">
+        <select name="role" class="w-full border rounded-lg px-3 py-2 text-sm">
+          <option value="client">I want to hire (client)</option>
+          <option value="freelancer">I want to sell services (freelancer)</option>
+        </select>
+      </div>
+      <input name="email" type="email" required placeholder="Email" class="w-full border rounded-lg px-3 py-2 text-sm">
+      <input name="password" type="password" required minlength="6" placeholder="Password (min 6 characters)" class="w-full border rounded-lg px-3 py-2 text-sm">
+      <p id="authErr" class="text-sm text-red-600 hidden"></p>
+      <button id="authSubmit" class="w-full bg-brand hover:bg-brand-dark text-white font-semibold py-2.5 rounded-lg">Sign in</button>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-slate-900 text-white text-sm px-5 py-2.5 rounded-full opacity-0 transition-opacity pointer-events-none z-[60]"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
